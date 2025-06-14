@@ -304,13 +304,13 @@ function estimateImageCount(config) {
                 break;
                 
             case 'days':
-                // For days filter, estimate based on total images and days
-                estimatedCount = Math.min(totalImages, Math.max(1, Math.floor(totalImages * 0.7)));
+                // For days filter, estimate all available images since we don't limit by quantity
+                estimatedCount = totalImages;
                 break;
                 
             case 'date':
-                // For specific date, estimate a smaller number
-                estimatedCount = Math.min(totalImages, Math.max(1, Math.floor(totalImages * 0.1)));
+                // For specific date, estimate all available images for that date
+                estimatedCount = totalImages;
                 break;
                 
             case 'all':
@@ -491,14 +491,13 @@ function collectImages(config) {
                     return true; // Include if no timestamp
                 });
                 
-                // If we have dated images, use them, otherwise use position-based logic
+                // If we have dated images, use them, otherwise use all images
                 if (imagesWithDates.length > 0 && imagesWithDates.length < images.length) {
                     filteredImages = imagesWithDates;
                 } else {
-                    // Fallback: assume images are roughly chronologically ordered
-                    // and take a reasonable portion based on days requested
-                    const portionSize = Math.min(images.length, Math.max(config.days * 5, 10));
-                    filteredImages = images.slice(0, portionSize);
+                    // If no timestamp filtering is possible, include all images
+                    // User specifically selected a day range, so give them all available images
+                    filteredImages = images;
                 }
                 break;
                 

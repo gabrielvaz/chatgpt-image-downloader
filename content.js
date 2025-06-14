@@ -106,24 +106,37 @@ function loadMoreImages() {
     const currentImages = getAllImages().length;
     console.log(`ChatGPT Image Downloader: ${currentImages} imagens encontradas inicialmente`);
     
-    if (currentImages < 20) {
-        // Se há poucas imagens, tenta scroll para carregar mais
-        console.log('ChatGPT Image Downloader: Tentando carregar mais imagens...');
+    // Sempre tenta carregar mais imagens, sem limite de quantidade
+    console.log('ChatGPT Image Downloader: Carregando todas as imagens disponíveis...');
+    
+    // Função para scroll progressivo
+    function progressiveScroll(scrollCount = 0, maxScrolls = 20) {
+        if (scrollCount >= maxScrolls) {
+            console.log('ChatGPT Image Downloader: Carregamento completo');
+            return;
+        }
         
-        // Scroll suave até o final da página
-        window.scrollTo({
-            top: document.body.scrollHeight,
+        // Scroll para carregar mais conteúdo
+        window.scrollBy({
+            top: window.innerHeight,
             behavior: 'smooth'
         });
         
-        // Aguarda um pouco e verifica se carregou mais imagens
+        // Aguarda um pouco e continua scrolling se necessário
         setTimeout(() => {
             const newCount = getAllImages().length;
-            if (newCount > currentImages) {
-                console.log(`ChatGPT Image Downloader: ${newCount - currentImages} novas imagens carregadas`);
+            console.log(`ChatGPT Image Downloader: ${newCount} imagens encontradas após scroll ${scrollCount + 1}`);
+            
+            // Continua scrolling se ainda há mais conteúdo ou se carregou novas imagens
+            if (document.body.scrollHeight > window.innerHeight + window.scrollY + 200 || 
+                newCount > currentImages + scrollCount * 5) {
+                progressiveScroll(scrollCount + 1, maxScrolls);
             }
-        }, 3000);
+        }, 2000);
     }
+    
+    // Inicia o scroll progressivo
+    progressiveScroll();
 }
 
 function getAllImages() {
@@ -331,8 +344,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Periodic scroll para carregar mais imagens (se necessário)
 setInterval(() => {
     const currentImages = getAllImages().length;
-    if (currentImages < 50 && document.body.scrollHeight > window.innerHeight) {
-        // Se ainda há poucas imagens e a página tem mais conteúdo, scroll um pouco
+    // Sempre tenta carregar mais imagens se há mais conteúdo disponível
+    if (document.body.scrollHeight > window.innerHeight + window.scrollY + 100) {
+        // Se ainda há mais conteúdo para carregar, scroll um pouco
         window.scrollBy({
             top: window.innerHeight * 0.5,
             behavior: 'smooth'
