@@ -1,5 +1,11 @@
 /* ChatGPT Image Downloader - OpenAI Inspired Design */
 
+html {
+    width: 360px !important;
+    min-width: 360px !important;
+    max-width: 360px !important;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -12,8 +18,12 @@ body {
     line-height: 1.5;
     color: #374151;
     background: #ffffff;
-    width: 360px;
+    width: 360px !important;
+    min-width: 360px !important;
+    max-width: 360px !important;
     min-height: 500px;
+    overflow-x: hidden;
+    position: relative;
 }
 
 .container {
@@ -21,6 +31,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    width: 100%;
+    min-width: 320px;
 }
 
 /* Header */
@@ -396,19 +408,22 @@ input[type="radio"]:checked + .radio-custom::after {
 }
 
 /* Responsive adjustments */
-@media (max-width: 380px) {
-    body {
-        width: 100%;
-    }
-    
-    .container {
-        padding: 16px;
-    }
-    
-    .modal-content {
-        width: calc(100% - 32px);
-        margin: 16px;
-    }
+/* Força largura fixa para consistência */
+body {
+    width: 360px !important;
+    min-width: 360px !important;
+    max-width: 360px !important;
+}
+
+.container {
+    width: 360px !important;
+    max-width: 360px !important;
+    padding: 20px;
+}
+
+.modal-content {
+    width: 340px !important;
+    max-width: 340px !important;
 }
 
 /* Animation for modal */
