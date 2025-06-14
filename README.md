@@ -1,17 +1,32 @@
 # ChatGPT Image Downloader
 
-Uma extensão Chrome que permite baixar imagens em lote da biblioteca do ChatGPT (https://chatgpt.com/library) com filtros personalizados.
+Uma extensão Chrome que permite baixar imagens em lote da biblioteca do ChatGPT (https://chatgpt.com/library) com filtros personalizados e organização inteligente de arquivos.
+
+## ✨ Principais Recursos
+
+- **🎯 Extração Inteligente de Títulos**: Utiliza títulos das imagens (span.line-clamp-2 e alt) para nomenclatura organizada
+- **� Organização Automática**: Arquivos nomeados com data e título limpo (ex: `2025-06-14_painel-do-chatgpt_001.png`)
+- **🌐 Interface Moderna**: Design inspirado no OpenAI com largura otimizada de 360px
+- **⚙️ Configurações Personalizáveis**: Pasta de destino e intervalo entre downloads
+- **📊 Estimativa em Tempo Real**: Prévia da quantidade de imagens e títulos que serão utilizados
 
 ## 🚀 Funcionalidades
 
-- **Filtros de Download**: 
+- **Filtros Avançados**: 
   - Todas as imagens disponíveis
   - N imagens mais recentes
   - Imagens dos últimos X dias
   - Imagens de uma data específica
-- **Download Automático**: Baixa todas as imagens selecionadas automaticamente
-- **Interface Intuitiva**: Popup simples e fácil de usar
-- **Salva Preferências**: Lembra suas configurações para próximas utilizações
+- **Download Inteligente**: 
+  - Intervalos personalizáveis (2s, 5s, 10s, 20s, aleatório)
+  - Nomenclatura baseada em títulos extraídos
+  - Preservação de acentos portugueses
+  - Organização cronológica automática
+- **Interface Moderna**: 
+  - Design OpenAI-inspired
+  - Configurações persistentes
+  - Feedback visual em tempo real
+  - Tooltips informativos
 
 ## 📦 Instalação
 
@@ -36,6 +51,33 @@ Uma extensão Chrome que permite baixar imagens em lote da biblioteca do ChatGPT
    - **Data específica**: Baixa imagens de uma data específica
 5. **Clique** em "Iniciar Download"
 6. As imagens serão baixadas automaticamente na pasta `Downloads/ChatGPT-Images/`
+
+## 🎨 Extração Inteligente de Títulos
+
+A extensão utiliza um sistema avançado para extrair títulos das imagens e organizar os arquivos:
+
+### Como Funciona
+1. **Busca por `.line-clamp-2`**: Primeira prioridade para elementos com título principal
+2. **Elementos de título**: `.line-clamp-1`, `.font-medium`, títulos de conversação
+3. **Atributos HTML**: `alt`, `aria-label`, `title` como fallback
+4. **Validação inteligente**: Filtra textos irrelevantes (datas, números, termos técnicos)
+
+### Exemplos de Nomenclatura
+```
+HTML da imagem:
+<span class="line-clamp-2">Painel do ChatGPT: Iniciar Download</span>
+<img alt="Painel do ChatGPT: Iniciar Download" src="...">
+
+Arquivo gerado:
+2025-06-14_painel-do-chatgpt-iniciar-download_001.png
+```
+
+### Características
+- ✅ Preserva acentos portugueses (á, é, í, ó, ú, ç, ã, õ)
+- ✅ Remove caracteres problemáticos para sistemas de arquivos
+- ✅ Organização cronológica automática
+- ✅ Numeração sequencial para evitar conflitos
+- ✅ Fallback para timestamp quando título não disponível
 
 ## 🔧 Estrutura do Projeto
 

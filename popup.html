@@ -4,57 +4,137 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatGPT Image Downloader</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="popup.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
-        <h2>ChatGPT Image Downloader</h2>
+        <!-- Header with settings -->
+        <div class="header">
+            <h1 class="title">ChatGPT Image Downloader</h1>
+            <button id="settings-btn" class="settings-btn" title="Configurações">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M12 1v6m0 10v6m11-7h-6m-10 0H1m15.5-6.5L17 10l-1.5-1.5m-7 7L7 14l-1.5 1.5m7-7L14 7 12.5 5.5m-7 7L7 17l-1.5 1.5"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions">
+            Certifique-se de estar na página <strong>chat.openai.com/library</strong> e estar logado
+        </div>
         
+        <!-- Status -->
         <div id="status" class="status hidden"></div>
         
-        <form id="config-form">
-            <div class="filter-option">
-                <label class="radio-label">
-                    <input type="radio" name="filter" value="all" checked>
-                    <span class="radio-text">Baixar todas as imagens</span>
-                </label>
+        <!-- Main form -->
+        <form id="config-form" class="form">
+            <div class="filter-group">
+                <div class="filter-option">
+                    <label class="radio-label">
+                        <input type="radio" name="filter" value="all" checked>
+                        <span class="radio-custom"></span>
+                        <span class="radio-text">Baixar todas as imagens</span>
+                    </label>
+                </div>
+                
+                <div class="filter-option">
+                    <label class="radio-label">
+                        <input type="radio" name="filter" value="count">
+                        <span class="radio-custom"></span>
+                        <div class="filter-content">
+                            <span class="radio-text">Últimas</span>
+                            <input type="number" name="count" min="1" max="500" value="10" class="number-input">
+                            <span class="radio-text">imagens</span>
+                        </div>
+                    </label>
+                </div>
+                
+                <div class="filter-option">
+                    <label class="radio-label">
+                        <input type="radio" name="filter" value="days">
+                        <span class="radio-custom"></span>
+                        <div class="filter-content">
+                            <span class="radio-text">Dos últimos</span>
+                            <input type="number" name="days" min="1" max="90" value="7" class="number-input">
+                            <span class="radio-text">dias</span>
+                        </div>
+                    </label>
+                </div>
+                
+                <div class="filter-option">
+                    <label class="radio-label">
+                        <input type="radio" name="filter" value="date">
+                        <span class="radio-custom"></span>
+                        <div class="filter-content">
+                            <span class="radio-text">Da data</span>
+                            <input type="date" name="date" class="date-input">
+                        </div>
+                    </label>
+                </div>
             </div>
-            
-            <div class="filter-option">
-                <label class="radio-label">
-                    <input type="radio" name="filter" value="count">
-                    <span class="radio-text">Últimas</span>
-                    <input type="number" name="count" min="1" max="200" value="10" class="number-input">
-                    <span class="radio-text">imagens</span>
-                </label>
-            </div>
-            
-            <div class="filter-option">
-                <label class="radio-label">
-                    <input type="radio" name="filter" value="days">
-                    <span class="radio-text">Dos últimos</span>
-                    <input type="number" name="days" min="1" max="30" value="7" class="number-input">
-                    <span class="radio-text">dias</span>
-                </label>
-            </div>
-            
-            <div class="filter-option">
-                <label class="radio-label">
-                    <input type="radio" name="filter" value="date">
-                    <span class="radio-text">Da data</span>
-                    <input type="date" name="date" class="date-input">
-                </label>
+
+            <!-- Image count estimate -->
+            <div id="image-estimate" class="image-estimate hidden">
+                Serão baixadas aproximadamente <strong id="estimate-count">0</strong> imagens
             </div>
             
             <button type="submit" id="download-btn" class="download-btn">
                 <span id="btn-text">Iniciar Download</span>
-                <span id="btn-loading" class="loading hidden">Processando...</span>
+                <span id="btn-loading" class="loading hidden">
+                    <svg class="spinner" width="16" height="16" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" opacity="0.3"></circle>
+                        <path d="M4 12a8 8 0 018-8V2.5" stroke="currentColor" stroke-width="4" fill="none"></path>
+                    </svg>
+                    Processando...
+                </span>
             </button>
         </form>
-        
-        <div id="info" class="info">
-            <p>📍 Certifique-se de estar na página <strong>chatgpt.com/library</strong></p>
-            <p>🔐 Faça login no ChatGPT antes de usar</p>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Configurações</h2>
+                <button id="close-settings" class="close-btn" title="Fechar configurações" aria-label="Fechar configurações">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="settings-form">
+                <div class="setting-group">
+                    <label class="setting-label">Pasta de download</label>
+                    <div class="setting-input">
+                        <input type="text" id="download-folder" class="folder-input" placeholder="ChatGPT-Images" value="ChatGPT-Images">
+                        <small class="setting-hint">Pasta dentro de Downloads/</small>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">Intervalo entre downloads</label>
+                    <div class="setting-input">
+                        <select id="download-interval" class="interval-select" title="Selecionar intervalo entre downloads">
+                            <option value="2000">2 segundos</option>
+                            <option value="5000" selected>5 segundos</option>
+                            <option value="10000">10 segundos</option>
+                            <option value="20000">20 segundos</option>
+                            <option value="random">Aleatório (2-10s)</option>
+                        </select>
+                        <small class="setting-hint">Tempo de espera entre cada download</small>
+                    </div>
+                </div>
+
+                <div class="settings-actions">
+                    <button id="save-settings" class="save-btn">Salvar Configurações</button>
+                </div>
+            </div>
         </div>
     </div>
     
