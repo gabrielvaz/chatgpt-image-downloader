@@ -1,0 +1,32 @@
+{
+  "name": "chatgpt-image-downloader",
+  "version": "1.0.0",
+  "description": "A Chrome extension that allows bulk downloading of images from ChatGPT's Library with customizable filters",
+  "main": "manifest.json",
+  "scripts": {
+    "build": "./build.sh",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/chatgpt-image-downloader.git"
+  },
+  "keywords": [
+    "chrome-extension",
+    "chatgpt",
+    "image-downloader",
+    "bulk-download",
+    "ai",
+    "productivity"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yourusername/chatgpt-image-downloader/issues"
+  },
+  "homepage": "https://github.com/yourusername/chatgpt-image-downloader#readme",
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

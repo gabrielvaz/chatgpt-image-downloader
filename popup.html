@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatGPT Image Downloader</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h2>ChatGPT Image Downloader</h2>
+        
+        <div id="status" class="status hidden"></div>
+        
+        <form id="config-form">
+            <div class="filter-option">
+                <label class="radio-label">
+                    <input type="radio" name="filter" value="all" checked>
+                    <span class="radio-text">Baixar todas as imagens</span>
+                </label>
+            </div>
+            
+            <div class="filter-option">
+                <label class="radio-label">
+                    <input type="radio" name="filter" value="count">
+                    <span class="radio-text">Últimas</span>
+                    <input type="number" name="count" min="1" max="200" value="10" class="number-input">
+                    <span class="radio-text">imagens</span>
+                </label>
+            </div>
+            
+            <div class="filter-option">
+                <label class="radio-label">
+                    <input type="radio" name="filter" value="days">
+                    <span class="radio-text">Dos últimos</span>
+                    <input type="number" name="days" min="1" max="30" value="7" class="number-input">
+                    <span class="radio-text">dias</span>
+                </label>
+            </div>
+            
+            <div class="filter-option">
+                <label class="radio-label">
+                    <input type="radio" name="filter" value="date">
+                    <span class="radio-text">Da data</span>
+                    <input type="date" name="date" class="date-input">
+                </label>
+            </div>
+            
+            <button type="submit" id="download-btn" class="download-btn">
+                <span id="btn-text">Iniciar Download</span>
+                <span id="btn-loading" class="loading hidden">Processando...</span>
+            </button>
+        </form>
+        
+        <div id="info" class="info">
+            <p>📍 Certifique-se de estar na página <strong>chatgpt.com/library</strong></p>
+            <p>🔐 Faça login no ChatGPT antes de usar</p>
+        </div>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>
