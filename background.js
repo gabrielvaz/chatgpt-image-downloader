@@ -1,6 +1,10 @@
 // Background script para gerenciar downloads com configurações personalizadas
 console.log('ChatGPT Image Downloader: Background script iniciado');
 
+// Global variables for download management
+let currentDownload = null;
+let downloadCancelled = false;
+
 // Escuta mensagens do popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === 'download_images') {
@@ -13,12 +17,89 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ success: false, error: error.message });
             });
         
-        // Retorna true para manter a conexão aberta para resposta assíncrona
+        return true;
+    }
+    
+    if (request.type === 'download_images_with_progress') {
+        handleImageDownloadsWithProgress(request.images, request.settings || {}, sender.tab?.id);
+        sendResponse({ success: true });
+        return true;
+    }
+    
+    if (request.type === 'cancel_download') {
+        downloadCancelled = true;
+        sendResponse({ success: true });
         return true;
     }
 });
 
-async function handleImageDownloads(images, settings) {
+async function handleImageDownloadsWithProgress(images, settings, tabId) {
+    try {
+        // Sort images by timestamp (newest first) if timestamps are available
+        const sortedImages = sortImagesByTimestamp(images);
+        
+        currentDownload = {
+            total: sortedImages.length,
+            current: 0,
+            cancelled: false
+        };
+        
+        downloadCancelled = false;
+        
+        const result = await handleImageDownloads(sortedImages, settings, true);
+        
+        // Send completion message
+        chrome.tabs.sendMessage(tabId || 0, {
+            type: 'download_complete',
+            downloaded: result.downloaded,
+            errors: result.errors
+        }).catch(() => {
+            // Fallback if tab messaging fails
+            chrome.runtime.sendMessage({
+                type: 'download_complete',
+                downloaded: result.downloaded,
+                errors: result.errors
+            });
+        });
+        
+    } catch (error) {
+        console.error('Download error:', error);
+        chrome.tabs.sendMessage(tabId || 0, {
+            type: 'download_error',
+            error: error.message
+        }).catch(() => {
+            chrome.runtime.sendMessage({
+                type: 'download_error',
+                error: error.message
+            });
+        });
+    }
+}
+
+function sortImagesByTimestamp(images) {
+    return images.slice().sort((a, b) => {
+        // If both have timestamps, sort by timestamp (newest first)
+        if (a.timestamp && b.timestamp) {
+            try {
+                const dateA = new Date(a.timestamp);
+                const dateB = new Date(b.timestamp);
+                return dateB - dateA; // Newest first
+            } catch (e) {
+                // If timestamp parsing fails, maintain original order
+                return 0;
+            }
+        }
+        
+        // If only one has timestamp, prioritize the one with timestamp
+        if (a.timestamp && !b.timestamp) return -1;
+        if (!a.timestamp && b.timestamp) return 1;
+        
+        // If neither has timestamp, maintain original order (should already be newest first)
+        return 0;
+    });
+}
+
+async function handleImageDownloads(images, settings, withProgress = false) {
     let downloaded = 0;
     let errors = [];
     
@@ -34,6 +115,12 @@ async function handleImageDownloads(images, settings) {
     
     // Processa downloads com intervalo configurável
     for (let i = 0; i < images.length; i++) {
+        // Check if download was cancelled
+        if (downloadCancelled) {
+            console.log('Download cancelled by user');
+            break;
+        }
+        
         const image = images[i];
         
         try {
@@ -42,6 +129,16 @@ async function handleImageDownloads(images, settings) {
             const fullPath = `${finalSettings.downloadFolder}/${filename}`;
             
             console.log(`Downloading image ${i + 1}/${images.length}: ${filename}`);
+            
+            // Send progress update if tracking enabled
+            if (withProgress) {
+                chrome.runtime.sendMessage({
+                    type: 'download_progress',
+                    current: i + 1,
+                    total: images.length,
+                    filename: filename
+                }).catch(() => {}); // Ignore messaging errors
+            }
             
             // Inicia o download
             const downloadId = await new Promise((resolve, reject) => {

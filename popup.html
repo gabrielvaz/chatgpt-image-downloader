@@ -15,9 +15,9 @@
         <div class="header">
             <h1 class="title">ChatGPT Image Downloader</h1>
             <button id="settings-btn" class="settings-btn" title="Configurações">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M12 1v6m0 10v6m11-7h-6m-10 0H1m15.5-6.5L17 10l-1.5-1.5m-7 7L7 14l-1.5 1.5m7-7L14 7 12.5 5.5m-7 7L7 17l-1.5 1.5"></path>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                 </svg>
             </button>
         </div>
@@ -38,6 +38,14 @@
                         <input type="radio" name="filter" value="all" checked>
                         <span class="radio-custom"></span>
                         <span class="radio-text">Baixar todas as imagens</span>
+                    </label>
+                </div>
+                
+                <div class="filter-option">
+                    <label class="radio-label">
+                        <input type="radio" name="filter" value="manual">
+                        <span class="radio-custom"></span>
+                        <span class="radio-text">Seleção manual de imagens</span>
                     </label>
                 </div>
                 
@@ -133,6 +141,88 @@
 
                 <div class="settings-actions">
                     <button id="save-settings" class="save-btn">Salvar Configurações</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Modal -->
+    <div id="progress-modal" class="modal hidden">
+        <div class="modal-content progress-modal">
+            <div class="modal-header">
+                <h2>Download em Progresso</h2>
+            </div>
+            
+            <div class="progress-content">
+                <div class="progress-info">
+                    <div id="progress-text" class="progress-text">Iniciando download...</div>
+                    <div id="progress-details" class="progress-details">
+                        <span id="progress-current">0</span> de <span id="progress-total">0</span> imagens
+                    </div>
+                </div>
+                
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+                
+                <div class="progress-folder">
+                    <div class="folder-info">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-7l-2-2H5a2 2 0 00-2 2z"></path>
+                        </svg>
+                        <span>Salvando em: <span id="progress-folder-path">Downloads/ChatGPT-Images/</span></span>
+                    </div>
+                </div>
+
+                <div id="progress-success" class="progress-success hidden">
+                    <div class="success-icon">✅</div>
+                    <div class="success-text">Download concluído com sucesso!</div>
+                    <div class="success-details">
+                        <span id="success-count">0</span> imagens baixadas
+                    </div>
+                </div>
+
+                <div class="progress-actions">
+                    <button id="cancel-download" class="btn btn-secondary">Cancelar</button>
+                    <button id="close-progress" class="btn btn-primary hidden">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Selection Modal -->
+    <div id="manual-modal" class="modal hidden">
+        <div class="modal-content manual-modal">
+            <div class="modal-header">
+                <h2>Seleção Manual de Imagens</h2>
+                <button id="close-manual" class="close-btn" title="Fechar" aria-label="Fechar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="manual-content">
+                <div class="manual-loading hidden" id="manual-loading">
+                    <div class="loading-spinner"></div>
+                    <div>Carregando imagens...</div>
+                </div>
+
+                <div class="manual-controls" id="manual-controls">
+                    <div class="selection-summary">
+                        <span id="selection-count">0</span> de <span id="total-images-count">0</span> imagens selecionadas
+                    </div>
+                    
+                    <div class="selection-actions">
+                        <button id="select-all" class="btn btn-secondary">Selecionar Todas</button>
+                        <button id="deselect-all" class="btn btn-secondary">Desmarcar Todas</button>
+                        <button id="download-selected" class="btn btn-primary" disabled>Baixar Selecionadas</button>
+                    </div>
+                </div>
+
+                <div class="images-list" id="images-list">
+                    <!-- Images will be populated here -->
                 </div>
             </div>
         </div>

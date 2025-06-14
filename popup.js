@@ -15,6 +15,36 @@ document.addEventListener('DOMContentLoaded', function() {
     const downloadFolderInput = document.getElementById('download-folder');
     const downloadIntervalSelect = document.getElementById('download-interval');
 
+    // Progress modal elements
+    const progressModal = document.getElementById('progress-modal');
+    const progressText = document.getElementById('progress-text');
+    const progressDetails = document.getElementById('progress-details');
+    const progressCurrent = document.getElementById('progress-current');
+    const progressTotal = document.getElementById('progress-total');
+    const progressBar = document.getElementById('progress-bar');
+    const progressFolderPath = document.getElementById('progress-folder-path');
+    const progressSuccess = document.getElementById('progress-success');
+    const successCount = document.getElementById('success-count');
+    const cancelDownloadBtn = document.getElementById('cancel-download');
+    const closeProgressBtn = document.getElementById('close-progress');
+
+    // Manual selection elements
+    const manualModal = document.getElementById('manual-modal');
+    const closeManualBtn = document.getElementById('close-manual');
+    const manualLoading = document.getElementById('manual-loading');
+    const manualControls = document.getElementById('manual-controls');
+    const selectionCount = document.getElementById('selection-count');
+    const totalImagesCount = document.getElementById('total-images-count');
+    const selectAllBtn = document.getElementById('select-all');
+    const deselectAllBtn = document.getElementById('deselect-all');
+    const downloadSelectedBtn = document.getElementById('download-selected');
+    const imagesList = document.getElementById('images-list');
+
+    // Global variables
+    let downloadCancelled = false;
+    let allImages = [];
+    let selectedImages = [];
+
     // Load saved settings and form data
     loadSavedSettings();
     loadSavedFormData();
@@ -26,9 +56,27 @@ document.addEventListener('DOMContentLoaded', function() {
     closeSettingsBtn.addEventListener('click', closeSettings);
     saveSettingsBtn.addEventListener('click', saveSettings);
     
-    // Close modal when clicking outside
+    // Progress modal listeners
+    cancelDownloadBtn.addEventListener('click', cancelDownload);
+    closeProgressBtn.addEventListener('click', closeProgressModal);
+    
+    // Manual selection listeners
+    closeManualBtn.addEventListener('click', closeManualModal);
+    selectAllBtn.addEventListener('click', selectAllImages);
+    deselectAllBtn.addEventListener('click', deselectAllImages);
+    downloadSelectedBtn.addEventListener('click', downloadSelectedImages);
+    
+    // Close modals when clicking outside
     settingsModal.addEventListener('click', function(e) {
         if (e.target === settingsModal) closeSettings();
+    });
+    
+    progressModal.addEventListener('click', function(e) {
+        if (e.target === progressModal && !downloadCancelled) cancelDownload();
+    });
+    
+    manualModal.addEventListener('click', function(e) {
+        if (e.target === manualModal) closeManualModal();
     });
 
     // Estimate images when form changes
@@ -59,6 +107,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 date: formData.get('date')
             };
 
+            // Handle manual selection
+            if (config.filter === 'manual') {
+                setButtonLoading(false);
+                await openManualSelection(tab.id);
+                return;
+            }
+
             // Validate configuration
             if (config.filter === 'date' && !config.date) {
                 showStatus('❌ Por favor, selecione uma data', 'error');
@@ -84,24 +139,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
-                showStatus(`Iniciando download de ${images.length} imagens...`, 'info');
-
-                // Get download settings
-                const settings = await getSettings();
-
-                // Send to background script
-                chrome.runtime.sendMessage({
-                    type: 'download_images',
-                    images: images,
-                    settings: settings
-                }, function(response) {
-                    if (response && response.success) {
-                        showStatus(`✅ Download iniciado! ${images.length} imagens serão baixadas.`, 'success');
-                    } else {
-                        showStatus('❌ Erro ao iniciar downloads', 'error');
-                    }
-                    setButtonLoading(false);
-                });
+                // Start download with progress
+                await startDownloadWithProgress(images);
 
             } else {
                 showStatus('❌ Erro ao coletar imagens da página', 'error');
@@ -275,8 +314,253 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // Initial estimation
-    setTimeout(estimateImages, 500);
+    // Progress Modal Functions
+    async function startDownloadWithProgress(images) {
+        try {
+            const settings = await getSettings();
+            
+            // Show progress modal
+            openProgressModal(images.length, settings.downloadFolder);
+            
+            // Reset cancel flag
+            downloadCancelled = false;
+            
+            // Start download with progress tracking
+            chrome.runtime.sendMessage({
+                type: 'download_images_with_progress',
+                images: images,
+                settings: settings
+            });
+            
+        } catch (error) {
+            console.error('Error starting download:', error);
+            showStatus(`❌ Erro: ${error.message}`, 'error');
+        }
+    }
+
+    function openProgressModal(totalImages, folderPath) {
+        progressTotal.textContent = totalImages;
+        progressCurrent.textContent = '0';
+        progressBar.style.width = '0%';
+        progressText.textContent = 'Iniciando download...';
+        progressFolderPath.textContent = `Downloads/${folderPath}/`;
+        progressSuccess.classList.add('hidden');
+        cancelDownloadBtn.classList.remove('hidden');
+        closeProgressBtn.classList.add('hidden');
+        
+        progressModal.classList.remove('hidden');
+        
+        // Listen for progress updates
+        listenForProgressUpdates();
+    }
+
+    function listenForProgressUpdates() {
+        chrome.runtime.onMessage.addListener(function progressListener(message) {
+            if (message.type === 'download_progress') {
+                updateProgress(message.current, message.total, message.filename);
+            } else if (message.type === 'download_complete') {
+                showDownloadComplete(message.downloaded, message.errors);
+                chrome.runtime.onMessage.removeListener(progressListener);
+            } else if (message.type === 'download_error') {
+                showDownloadError(message.error);
+                chrome.runtime.onMessage.removeListener(progressListener);
+            }
+        });
+    }
+
+    function updateProgress(current, total, filename) {
+        if (downloadCancelled) return;
+        
+        const percentage = Math.round((current / total) * 100);
+        
+        progressCurrent.textContent = current;
+        progressTotal.textContent = total;
+        progressBar.style.width = `${percentage}%`;
+        progressText.textContent = `Baixando ${filename || 'imagem'}...`;
+        progressDetails.textContent = `${current} de ${total} imagens`;
+    }
+
+    function showDownloadComplete(downloaded, errors) {
+        progressText.textContent = 'Download concluído!';
+        progressBar.style.width = '100%';
+        successCount.textContent = downloaded;
+        
+        progressSuccess.classList.remove('hidden');
+        cancelDownloadBtn.classList.add('hidden');
+        closeProgressBtn.classList.remove('hidden');
+        
+        if (errors && errors.length > 0) {
+            progressText.textContent = `Download concluído com ${errors.length} erro(s)`;
+        }
+    }
+
+    function showDownloadError(error) {
+        progressText.textContent = 'Erro no download';
+        progressDetails.textContent = error;
+        cancelDownloadBtn.classList.add('hidden');
+        closeProgressBtn.classList.remove('hidden');
+    }
+
+    function cancelDownload() {
+        downloadCancelled = true;
+        chrome.runtime.sendMessage({ type: 'cancel_download' });
+        closeProgressModal();
+    }
+
+    function closeProgressModal() {
+        progressModal.classList.add('hidden');
+        downloadCancelled = false;
+    }
+
+    // Manual Selection Functions
+    async function openManualSelection(tabId) {
+        manualModal.classList.remove('hidden');
+        manualLoading.classList.remove('hidden');
+        manualControls.classList.add('hidden');
+        imagesList.innerHTML = '';
+        
+        try {
+            // Collect all images with metadata
+            const results = await chrome.scripting.executeScript({
+                target: { tabId },
+                function: collectAllImagesWithMetadata,
+                args: [300] // Get last 300 images
+            });
+
+            if (results && results[0] && results[0].result) {
+                allImages = results[0].result;
+                displayImagesForSelection();
+            } else {
+                throw new Error('Não foi possível carregar as imagens');
+            }
+        } catch (error) {
+            console.error('Error loading images:', error);
+            manualLoading.innerHTML = `<div style="color: #ef4444;">Erro ao carregar imagens: ${error.message}</div>`;
+        }
+    }
+
+    function displayImagesForSelection() {
+        manualLoading.classList.add('hidden');
+        manualControls.classList.remove('hidden');
+        
+        totalImagesCount.textContent = allImages.length;
+        updateSelectionCount();
+        
+        imagesList.innerHTML = '';
+        
+        allImages.forEach((image, index) => {
+            const item = document.createElement('div');
+            item.className = 'image-item';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'image-checkbox';
+            checkbox.id = `img-${index}`;
+            checkbox.addEventListener('change', () => toggleImageSelection(index));
+            
+            const info = document.createElement('div');
+            info.className = 'image-info';
+            
+            const title = document.createElement('div');
+            title.className = 'image-title';
+            title.textContent = image.title || `Imagem ${index + 1}`;
+            
+            const date = document.createElement('div');
+            date.className = 'image-date';
+            if (image.timestamp) {
+                try {
+                    const imgDate = new Date(image.timestamp);
+                    date.textContent = imgDate.toLocaleString('pt-BR');
+                } catch (e) {
+                    date.textContent = 'Data não disponível';
+                }
+            } else {
+                date.textContent = 'Data não disponível';
+            }
+            
+            info.appendChild(title);
+            info.appendChild(date);
+            
+            // Add preview if possible
+            const preview = document.createElement('img');
+            preview.className = 'image-preview';
+            preview.src = image.url;
+            preview.onerror = () => {
+                preview.style.display = 'none';
+            };
+            
+            item.appendChild(checkbox);
+            item.appendChild(info);
+            item.appendChild(preview);
+            
+            imagesList.appendChild(item);
+        });
+    }
+
+    function toggleImageSelection(index) {
+        const checkbox = document.getElementById(`img-${index}`);
+        const item = checkbox.closest('.image-item');
+        
+        if (checkbox.checked) {
+            selectedImages.push(allImages[index]);
+            item.classList.add('selected');
+        } else {
+            selectedImages = selectedImages.filter(img => img !== allImages[index]);
+            item.classList.remove('selected');
+        }
+        
+        updateSelectionCount();
+    }
+
+    function updateSelectionCount() {
+        selectionCount.textContent = selectedImages.length;
+        downloadSelectedBtn.disabled = selectedImages.length === 0;
+    }
+
+    function selectAllImages() {
+        selectedImages = [...allImages];
+        document.querySelectorAll('.image-checkbox').forEach((checkbox, index) => {
+            checkbox.checked = true;
+            checkbox.closest('.image-item').classList.add('selected');
+        });
+        updateSelectionCount();
+    }
+
+    function deselectAllImages() {
+        selectedImages = [];
+        document.querySelectorAll('.image-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+            checkbox.closest('.image-item').classList.remove('selected');
+        });
+        updateSelectionCount();
+    }
+
+    async function downloadSelectedImages() {
+        if (selectedImages.length === 0) return;
+        
+        closeManualModal();
+        await startDownloadWithProgress(selectedImages);
+    }
+
+    function closeManualModal() {
+        manualModal.classList.add('hidden');
+        selectedImages = [];
+        allImages = [];
+    }
+
+    // Update estimateImages to handle manual selection
+    const originalEstimateImages = estimateImages;
+    estimateImages = async function() {
+        const formData = new FormData(form);
+        const filter = formData.get('filter');
+        
+        if (filter === 'manual') {
+            imageEstimate.classList.add('hidden');
+            return;
+        }
+        
+        return originalEstimateImages();
+    };
 });
 
 // Function to estimate image count (injected into page)
@@ -545,5 +829,98 @@ function collectImages(config) {
             images: [],
             message: `Erro ao coletar imagens: ${error.message}`
         };
+    }
+}
+
+// Function to collect all images with metadata (injected into page)
+function collectAllImagesWithMetadata(maxImages = 300) {
+    try {
+        const images = [];
+        
+        // Enhanced selectors to catch different image types
+        const selectors = [
+            '.group\\/imagegen-image img',
+            '[data-testid*="image"] img',
+            '.image-container img',
+            'img[src*="oaiusercontent.com"]',
+            '[data-testid="conversation-turn"] img',
+            '.flex.flex-col img'
+        ];
+        
+        // Collect all unique images
+        const seenUrls = new Set();
+        
+        selectors.forEach(selector => {
+            const foundImages = document.querySelectorAll(selector);
+            foundImages.forEach(img => {
+                if (img.src && img.src.includes('oaiusercontent.com') && !seenUrls.has(img.src)) {
+                    seenUrls.add(img.src);
+                    
+                    // Extract title and timestamp
+                    const title = extractImageTitleFromImg(img);
+                    const timestamp = extractImageTimestamp(img);
+                    
+                    const imageData = {
+                        url: img.src,
+                        title: title,
+                        timestamp: timestamp,
+                        element: img
+                    };
+                    
+                    images.push(imageData);
+                }
+            });
+        });
+        
+        // Sort by timestamp (newest first) or by position if no timestamp
+        images.sort((a, b) => {
+            if (a.timestamp && b.timestamp) {
+                return new Date(b.timestamp) - new Date(a.timestamp);
+            }
+            // If no timestamps, keep original order (which should be newest first)
+            return 0;
+        });
+        
+        // Limit to maxImages
+        return images.slice(0, maxImages);
+        
+    } catch (error) {
+        console.error('Error collecting images:', error);
+        return [];
+    }
+}
+
+// Helper function to extract timestamp from image context
+function extractImageTimestamp(img) {
+    try {
+        // Look for time elements in parent containers
+        let current = img.closest('[data-testid], .group\\/imagegen-image, .image-container, .relative, .flex');
+        let depth = 0;
+        
+        while (current && depth < 8) {
+            // Look for time elements
+            const timeEl = current.querySelector('time[datetime], [data-time], .timestamp');
+            if (timeEl) {
+                const datetime = timeEl.getAttribute('datetime') || 
+                               timeEl.getAttribute('data-time') || 
+                               timeEl.getAttribute('title') || 
+                               timeEl.textContent;
+                if (datetime) return datetime;
+            }
+            
+            // Look for relative time indicators
+            const relativeTime = current.querySelector('[title*="AM"], [title*="PM"], [title*="ago"]');
+            if (relativeTime) {
+                const title = relativeTime.getAttribute('title') || relativeTime.textContent;
+                if (title) return title;
+            }
+            
+            current = current.parentElement;
+            depth++;
+        }
+        
+        return null;
+    } catch (e) {
+        return null;
     }
 }
