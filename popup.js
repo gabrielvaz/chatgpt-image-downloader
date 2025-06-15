@@ -214,18 +214,40 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function saveSettings() {
-        const settings = {
-            downloadFolder: downloadFolderInput.value.trim() || 'ChatGPT-Images',
-            downloadInterval: downloadIntervalSelect.value
-        };
+        try {
+            // Show loading state
+            saveSettingsBtn.disabled = true;
+            saveSettingsBtn.textContent = 'Salvando...';
+            
+            const settings = {
+                downloadFolder: downloadFolderInput.value.trim() || 'ChatGPT-Images',
+                downloadInterval: downloadIntervalSelect.value
+            };
 
-        await chrome.storage.sync.set({ chatgptImageDownloaderSettings: settings });
-        
-        showStatus('✅ Configurações salvas!', 'success');
-        setTimeout(() => {
-            closeSettings();
-            statusDiv.classList.add('hidden');
-        }, 1500);
+            await chrome.storage.sync.set({ chatgptImageDownloaderSettings: settings });
+            
+            // Show success feedback
+            saveSettingsBtn.textContent = '✅ Salvo!';
+            showStatus('✅ Configurações salvas com sucesso!', 'success');
+            
+            // Close modal after short delay
+            setTimeout(() => {
+                closeSettings();
+                statusDiv.classList.add('hidden');
+                
+                // Reset button state
+                saveSettingsBtn.disabled = false;
+                saveSettingsBtn.textContent = 'Salvar Configurações';
+            }, 1000);
+            
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            showStatus('❌ Erro ao salvar configurações: ' + error.message, 'error');
+            
+            // Reset button state on error
+            saveSettingsBtn.disabled = false;
+            saveSettingsBtn.textContent = 'Salvar Configurações';
+        }
     }
 
     async function getSettings() {
@@ -419,23 +441,61 @@ document.addEventListener('DOMContentLoaded', function() {
         manualControls.classList.add('hidden');
         imagesList.innerHTML = '';
         
+        // Show loading message with steps
+        manualLoading.innerHTML = `
+            <div class="loading-spinner"></div>
+            <div id="loading-steps">
+                <div>1. Fazendo scroll para carregar todas as imagens...</div>
+                <div id="step-2" style="opacity: 0.5;">2. Coletando metadados das imagens...</div>
+                <div id="step-3" style="opacity: 0.5;">3. Organizando lista para seleção...</div>
+            </div>
+        `;
+        
         try {
-            // Collect all images with metadata
-            const results = await chrome.scripting.executeScript({
+            // Step 1: Load all images by scrolling
+            const scrollResults = await chrome.scripting.executeScript({
                 target: { tabId },
-                function: collectAllImagesWithMetadata,
-                args: [300] // Get last 300 images
+                function: loadAllImagesWithScroll
             });
 
-            if (results && results[0] && results[0].result) {
-                allImages = results[0].result;
-                displayImagesForSelection();
+            if (!scrollResults || !scrollResults[0] || !scrollResults[0].result) {
+                throw new Error('Erro ao carregar as imagens da página');
+            }
+
+            const { totalImagesFound } = scrollResults[0].result;
+            
+            // Update loading message
+            document.getElementById('step-2').style.opacity = '1';
+            
+            // Step 2: Collect all images with metadata
+            const collectResults = await chrome.scripting.executeScript({
+                target: { tabId },
+                function: collectAllImagesWithMetadata,
+                args: [0] // 0 = no limit, get all images
+            });
+
+            if (collectResults && collectResults[0] && collectResults[0].result) {
+                allImages = collectResults[0].result;
+                
+                // Update loading message
+                document.getElementById('step-3').style.opacity = '1';
+                
+                // Small delay to show final step
+                setTimeout(() => {
+                    displayImagesForSelection();
+                }, 500);
             } else {
-                throw new Error('Não foi possível carregar as imagens');
+                throw new Error('Não foi possível coletar as imagens');
             }
         } catch (error) {
             console.error('Error loading images:', error);
-            manualLoading.innerHTML = `<div style="color: #ef4444;">Erro ao carregar imagens: ${error.message}</div>`;
+            manualLoading.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 20px;">
+                <div style="font-weight: 600; margin-bottom: 8px;">Erro ao carregar imagens</div>
+                <div style="font-size: 14px;">${error.message}</div>
+                <div style="font-size: 12px; margin-top: 8px; opacity: 0.8;">
+                    Certifique-se de estar na página chatgpt.com/library
+                </div>
+            </div>`;
         }
     }
 
@@ -447,6 +507,23 @@ document.addEventListener('DOMContentLoaded', function() {
         updateSelectionCount();
         
         imagesList.innerHTML = '';
+        
+        // Add summary header
+        if (allImages.length > 0) {
+            const summary = document.createElement('div');
+            summary.className = 'images-summary';
+            summary.innerHTML = `
+                <div style="background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 16px; border-left: 4px solid #10b981;">
+                    <div style="font-weight: 600; color: #065f46; margin-bottom: 4px;">
+                        ✅ ${allImages.length} imagens encontradas na biblioteca
+                    </div>
+                    <div style="font-size: 14px; color: #6b7280;">
+                        Selecione as imagens que deseja baixar usando os checkboxes abaixo
+                    </div>
+                </div>
+            `;
+            imagesList.appendChild(summary);
+        }
         
         allImages.forEach((image, index) => {
             const item = document.createElement('div');
@@ -464,6 +541,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const title = document.createElement('div');
             title.className = 'image-title';
             title.textContent = image.title || `Imagem ${index + 1}`;
+            title.title = image.title || `Imagem ${index + 1}`; // Tooltip
             
             const date = document.createElement('div');
             date.className = 'image-date';
@@ -478,6 +556,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 date.textContent = 'Data não disponível';
             }
             
+            // Add image index for easier identification
+            const indexLabel = document.createElement('div');
+            indexLabel.className = 'image-index';
+            indexLabel.textContent = `#${index + 1}`;
+            
+            info.appendChild(indexLabel);
             info.appendChild(title);
             info.appendChild(date);
             
@@ -485,8 +569,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const preview = document.createElement('img');
             preview.className = 'image-preview';
             preview.src = image.url;
+            preview.loading = 'lazy'; // Lazy load for better performance
             preview.onerror = () => {
                 preview.style.display = 'none';
+                // Add a placeholder when image fails to load
+                const placeholder = document.createElement('div');
+                placeholder.className = 'image-placeholder';
+                placeholder.innerHTML = '🖼️';
+                item.appendChild(placeholder);
             };
             
             item.appendChild(checkbox);
@@ -495,6 +585,22 @@ document.addEventListener('DOMContentLoaded', function() {
             
             imagesList.appendChild(item);
         });
+        
+        // If no images found, show helpful message
+        if (allImages.length === 0) {
+            const noImages = document.createElement('div');
+            noImages.innerHTML = `
+                <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">🖼️</div>
+                    <div style="font-weight: 600; margin-bottom: 8px;">Nenhuma imagem encontrada</div>
+                    <div style="font-size: 14px; line-height: 1.5;">
+                        Certifique-se de estar na página <strong>chatgpt.com/library</strong><br>
+                        e que existem imagens geradas em suas conversas.
+                    </div>
+                </div>
+            `;
+            imagesList.appendChild(noImages);
+        }
     }
 
     function toggleImageSelection(index) {
@@ -832,8 +938,95 @@ function collectImages(config) {
     }
 }
 
+// Function to load all images by scrolling (injected into page)
+function loadAllImagesWithScroll() {
+    return new Promise((resolve) => {
+        let previousImageCount = 0;
+        let stableCount = 0;
+        let scrollAttempts = 0;
+        const maxScrollAttempts = 50; // Maximum scroll attempts to prevent infinite loops
+        const scrollDelay = 1000; // Wait time between scrolls
+        
+        function countCurrentImages() {
+            const selectors = [
+                '.group\\/imagegen-image img',
+                '[data-testid*="image"] img',
+                '.image-container img',
+                'img[src*="oaiusercontent.com"]',
+                '[data-testid="conversation-turn"] img',
+                '.flex.flex-col img'
+            ];
+            
+            const seenUrls = new Set();
+            let totalCount = 0;
+            
+            selectors.forEach(selector => {
+                const images = document.querySelectorAll(selector);
+                images.forEach(img => {
+                    if (img.src && img.src.includes('oaiusercontent.com') && !seenUrls.has(img.src)) {
+                        seenUrls.add(img.src);
+                        totalCount++;
+                    }
+                });
+            });
+            
+            return totalCount;
+        }
+        
+        function performScroll() {
+            // Scroll to bottom of page
+            window.scrollTo(0, document.body.scrollHeight);
+            
+            // Also try scrolling within any scrollable containers
+            const scrollableContainers = document.querySelectorAll('[data-testid="conversation-turn"], .overflow-y-auto, .scroll-container');
+            scrollableContainers.forEach(container => {
+                if (container.scrollHeight > container.clientHeight) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            });
+            
+            scrollAttempts++;
+            
+            setTimeout(() => {
+                const currentImageCount = countCurrentImages();
+                
+                console.log(`Scroll attempt ${scrollAttempts}: Found ${currentImageCount} images`);
+                
+                if (currentImageCount === previousImageCount) {
+                    stableCount++;
+                } else {
+                    stableCount = 0;
+                    previousImageCount = currentImageCount;
+                }
+                
+                // Stop if no new images found after 3 attempts or max attempts reached
+                if (stableCount >= 3 || scrollAttempts >= maxScrollAttempts) {
+                    console.log(`Finished loading images. Total found: ${currentImageCount}`);
+                    resolve({ 
+                        totalImagesFound: currentImageCount,
+                        scrollAttempts: scrollAttempts
+                    });
+                } else {
+                    performScroll();
+                }
+            }, scrollDelay);
+        }
+        
+        // Start the scrolling process
+        const initialCount = countCurrentImages();
+        console.log(`Starting with ${initialCount} images visible`);
+        previousImageCount = initialCount;
+        
+        if (initialCount === 0) {
+            resolve({ totalImagesFound: 0, scrollAttempts: 0 });
+        } else {
+            performScroll();
+        }
+    });
+}
+
 // Function to collect all images with metadata (injected into page)
-function collectAllImagesWithMetadata(maxImages = 300) {
+function collectAllImagesWithMetadata(maxImages = 0) {
     try {
         const images = [];
         
@@ -881,8 +1074,12 @@ function collectAllImagesWithMetadata(maxImages = 300) {
             return 0;
         });
         
-        // Limit to maxImages
-        return images.slice(0, maxImages);
+        // Limit to maxImages if specified (0 means no limit)
+        if (maxImages > 0) {
+            return images.slice(0, maxImages);
+        } else {
+            return images;
+        }
         
     } catch (error) {
         console.error('Error collecting images:', error);
