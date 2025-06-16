@@ -862,6 +862,14 @@ function collectImages(config) {
             images.push(imageData);
         });
 
+        // NOVO: Ordena por timestamp (mais recente primeiro) antes de filtrar
+        images.sort((a, b) => {
+            if (a.timestamp && b.timestamp) {
+                return new Date(b.timestamp) - new Date(a.timestamp);
+            }
+            return 0;
+        });
+
         // Apply filters with improved logic
         let filteredImages = [...images];
         
