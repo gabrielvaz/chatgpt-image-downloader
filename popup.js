@@ -377,17 +377,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function listenForProgressUpdates() {
-        chrome.runtime.onMessage.addListener(function progressListener(message) {
+        // Remove qualquer listener anterior para evitar múltiplos listeners
+        if (window._progressListener) {
+            chrome.runtime.onMessage.removeListener(window._progressListener);
+        }
+        window._progressListener = function progressListener(message) {
+            console.log('[Popup] Mensagem recebida:', message);
             if (message.type === 'download_progress') {
                 updateProgress(message.current, message.total, message.filename);
             } else if (message.type === 'download_complete') {
                 showDownloadComplete(message.downloaded, message.errors);
-                chrome.runtime.onMessage.removeListener(progressListener);
+                chrome.runtime.onMessage.removeListener(window._progressListener);
             } else if (message.type === 'download_error') {
                 showDownloadError(message.error);
-                chrome.runtime.onMessage.removeListener(progressListener);
+                chrome.runtime.onMessage.removeListener(window._progressListener);
             }
-        });
+        };
+        chrome.runtime.onMessage.addListener(window._progressListener);
     }
 
     function updateProgress(current, total, filename) {

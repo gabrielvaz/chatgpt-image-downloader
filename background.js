@@ -49,30 +49,52 @@ async function handleImageDownloadsWithProgress(images, settings, tabId) {
         const result = await handleImageDownloads(sortedImages, settings, true);
         
         // Send completion message
-        chrome.tabs.sendMessage(tabId || 0, {
-            type: 'download_complete',
-            downloaded: result.downloaded,
-            errors: result.errors
-        }).catch(() => {
-            // Fallback if tab messaging fails
+        if (tabId) {
+            chrome.tabs.sendMessage(tabId, {
+                type: 'download_complete',
+                downloaded: result.downloaded,
+                errors: result.errors
+            }, () => {
+                if (chrome.runtime.lastError) {
+                    console.warn('[BG] Falha ao enviar para tab, usando runtime:', chrome.runtime.lastError.message);
+                    chrome.runtime.sendMessage({
+                        type: 'download_complete',
+                        downloaded: result.downloaded,
+                        errors: result.errors
+                    });
+                } else {
+                    console.log('[BG] Mensagem de conclusão enviada para tabId', tabId);
+                }
+            });
+        } else {
             chrome.runtime.sendMessage({
                 type: 'download_complete',
                 downloaded: result.downloaded,
                 errors: result.errors
             });
-        });
+        }
         
     } catch (error) {
         console.error('Download error:', error);
-        chrome.tabs.sendMessage(tabId || 0, {
-            type: 'download_error',
-            error: error.message
-        }).catch(() => {
+        if (tabId) {
+            chrome.tabs.sendMessage(tabId, {
+                type: 'download_error',
+                error: error.message
+            }, () => {
+                if (chrome.runtime.lastError) {
+                    console.warn('[BG] Falha ao enviar erro para tab, usando runtime:', chrome.runtime.lastError.message);
+                    chrome.runtime.sendMessage({
+                        type: 'download_error',
+                        error: error.message
+                    });
+                }
+            });
+        } else {
             chrome.runtime.sendMessage({
                 type: 'download_error',
                 error: error.message
             });
-        });
+        }
     }
 }
 
@@ -132,6 +154,7 @@ async function handleImageDownloads(images, settings, withProgress = false) {
             
             // Send progress update if tracking enabled
             if (withProgress) {
+                console.log('[BG] Progresso:', i + 1, '/', images.length, filename);
                 chrome.runtime.sendMessage({
                     type: 'download_progress',
                     current: i + 1,
